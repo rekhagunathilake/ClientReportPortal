@@ -1,0 +1,16 @@
+## Build output
+bin/
+obj/
+
+## Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+## Aspire local state
+**/.aspire/
+
+## OS cruft
+.DS_Store
+Thumbs.db

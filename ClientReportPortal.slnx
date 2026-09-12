@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ClientReportPortal.Api/ClientReportPortal.Api.csproj" />
+    <Project Path="src/ClientReportPortal.AppHost/ClientReportPortal.AppHost.csproj" />
+    <Project Path="src/ClientReportPortal.Application/ClientReportPortal.Application.csproj" />
+    <Project Path="src/ClientReportPortal.Domain/ClientReportPortal.Domain.csproj" />
+    <Project Path="src/ClientReportPortal.Infrastructure/ClientReportPortal.Infrastructure.csproj" />
+    <Project Path="src/ClientReportPortal.ServiceDefaults/ClientReportPortal.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/src/ClientReportPortal.Web/">
+    <Project Path="src/ClientReportPortal.Web/ClientReportPortal.Web.Client/ClientReportPortal.Web.Client.csproj" />
+    <Project Path="src/ClientReportPortal.Web/ClientReportPortal.Web/ClientReportPortal.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ClientReportPortal.Domain.Tests/ClientReportPortal.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
