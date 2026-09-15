@@ -3,6 +3,13 @@ using ClientReportPortal.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddHttpClient("Api", client =>
+{
+    client.BaseAddress = new("https+http://api");
+});
+
+builder.AddServiceDefaults();
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
@@ -31,5 +38,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(ClientReportPortal.Web.Client._Imports).Assembly);
+
+app.MapDefaultEndpoints();
 
 app.Run();
