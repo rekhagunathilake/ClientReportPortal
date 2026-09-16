@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/docs/" />
+  <Folder Name="/docs/decisions/">
+    <File Path="ADR-001-Clean-Architecture-Layering.md" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/ClientReportPortal.Api/ClientReportPortal.Api.csproj" />
     <Project Path="src/ClientReportPortal.AppHost/ClientReportPortal.AppHost.csproj" />
