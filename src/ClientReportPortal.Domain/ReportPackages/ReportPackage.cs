@@ -29,4 +29,40 @@ public sealed class ReportPackage : AggregateRoot
 
         return package;
     }
+
+    public void SubmitSectionForReview(Guid sectionId)
+    {
+        var section = _sections.SingleOrDefault(s => s.Id == sectionId)
+                      ?? throw new DomainInvariantViolationException($"Section {sectionId} not found in package {Id}.");
+
+        // Update the section status to InReview
+        section.SubmitForReview();
+    }
+
+    public void ApproveSection(Guid sectionId)
+    {
+        var section = _sections.SingleOrDefault(s => s.Id == sectionId)
+                      ?? throw new DomainInvariantViolationException($"Section {sectionId} not found in package {Id}.");
+
+        // Update the section status to Approved
+        section.Approve();
+    }
+
+    public void RejectSection(Guid sectionId)
+    {
+        var section = _sections.SingleOrDefault(s => s.Id == sectionId)
+                      ?? throw new DomainInvariantViolationException($"Section {sectionId} not found in package {Id}.");
+        
+        // Update the section status to Rejected
+        section.Reject();
+    }
+
+    public void ReviseSection(Guid sectionId)
+    {
+        var section = _sections.SingleOrDefault(s => s.Id == sectionId)
+                      ?? throw new DomainInvariantViolationException($"Section {sectionId} not found in package {Id}.");
+
+        // Update the section status to Pending
+        section.Revise();
+    }
 }
