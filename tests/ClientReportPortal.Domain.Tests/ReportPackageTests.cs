@@ -66,6 +66,8 @@ public class ReportPackageTests
 
         Assert.Throws<DomainInvariantViolationException>(() => package.ApproveSection(section.Id));
 
+        Assert.Empty(package.DomainEvents);
+
         var unchanged = package.Sections.Single(s => s.Id == section.Id);
         Assert.Equal(SectionStatus.Pending, unchanged.Status);
     }
@@ -173,6 +175,8 @@ public class ReportPackageTests
         var package = ReportPackage.Create("Acme Wealth", "2026-Q3");
 
         Assert.Throws<DomainInvariantViolationException>(package.MarkCompiled);
+
+        Assert.Empty(package.DomainEvents);
     }
 
     [Fact]
@@ -246,6 +250,8 @@ public class ReportPackageTests
         var package = ReportPackage.Create("Acme Wealth", "2026-Q3");
 
         Assert.Throws<DomainInvariantViolationException>(package.Publish);
+
+        Assert.Empty(package.DomainEvents);
     }
 
     [Fact]
