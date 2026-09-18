@@ -1,9 +1,13 @@
 ﻿using ClientReportPortal.Domain.ReportPackages;
+using ClientReportPortal.Domain.ReportPackages.Events;
+using FluentAssertions;
 
 namespace ClientReportPortal.Domain.Tests;
 
 public class ReportPackageTests
 {
+    // ------ State transition tests for ReportPackage and its Sections -------
+
     [Fact]
     public void Create_SeedsThreeSectionsAsPending_AndStartsInDraft()
     {
@@ -265,5 +269,71 @@ public class ReportPackageTests
 
         Assert.Throws<DomainInvariantViolationException>(
             () => package.SetSectionContent(section.Id, "Edited while under review"));
+    }
+
+    // ----- Event raising tests for ReportPackage and its Sections -------
+
+    [Fact]
+    public void ApproveSection_WhenSectionInReview_RaisesSectionApprovedEvent()
+    {
+        var package = ReportPackage.Create("Acme Wealth", "2026-Q3");
+        var section = package.Sections.First(s => s.Type == SectionType.Performance);
+        package.SubmitSectionForReview(section.Id);
+        package.ApproveSection(section.Id);
+
+        var approvedEvent = package.DomainEvents.OfType<SectionApproved>().Single();
+        approvedEvent.SectionId.Should().Be(section.Id);
+        approvedEvent.SectionType.Should().Be(SectionType.Performance);
+        approvedEvent.ReportPackageId.Should().Be(package.Id);
+    }
+
+    [Fact]
+    public void MarkCompiled_WhenCompiling_RaisesReportCompiledEvent()
+    {
+        var package = ReportPackage.Create("Acme Wealth", "2026-Q3");
+        foreach (var section in package.Sections)
+        {
+            package.SubmitSectionForReview(section.Id);
+            package.ApproveSection(section.Id);
+        }
+        package.StartCompilation();
+        package.MarkCompiled();
+        var compiledEvent = package.DomainEvents.OfType<ReportCompiled>().Single();
+        compiledEvent.ReportPackageId.Should().Be(package.Id);
+    }
+
+    [Fact]
+    public void Publish_WhenCompiled_RaisesReportPublishedEvent()
+    {
+        var package = ReportPackage.Create("Acme Wealth", "2026-Q3");
+        foreach (var section in package.Sections)
+        {
+            package.SubmitSectionForReview(section.Id);
+            package.ApproveSection(section.Id);
+        }
+        package.StartCompilation();
+        package.MarkCompiled();
+        package.Publish();
+        var publishedEvent = package.DomainEvents.OfType<ReportPublished>().Single();
+        publishedEvent.ReportPackageId.Should().Be(package.Id);
+    }
+
+    [Fact]
+    public void ClearDomainEvents_RemovesAllRaisedEvents()
+    {
+        var package = ReportPackage.Create("Acme Wealth", "2026-Q3");
+        foreach (var section in package.Sections)
+        {
+            package.SubmitSectionForReview(section.Id);
+            package.ApproveSection(section.Id);
+        }
+        package.StartCompilation();
+        package.MarkCompiled();
+        package.Publish();
+
+        package.DomainEvents.Count.Should().Be(5);
+
+        package.ClearDomainEvents();
+        package.DomainEvents.Count.Should().Be(0);
     }
 }
