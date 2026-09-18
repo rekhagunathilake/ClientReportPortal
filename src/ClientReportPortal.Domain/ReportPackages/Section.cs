@@ -1,7 +1,8 @@
 ﻿namespace ClientReportPortal.Domain.ReportPackages;
+
 public sealed class Section
 {
-    public Guid Id { get; private set; }
+    public Guid Id { get; private init; }
     public SectionType Type { get; private set; }
     public SectionStatus Status { get; private set; }
     public string? Content { get; private set; }
@@ -19,7 +20,14 @@ public sealed class Section
         };
     }
 
-    internal void SubmitForReview() => Status = SectionStatus.InReview;
+    internal void SubmitForReview()
+    {
+        if (Status != SectionStatus.Pending)
+            throw new DomainInvariantViolationException(
+                $"Section {Id} must be Pending to be submitted for review (was {Status}).");
+
+        Status = SectionStatus.InReview;
+    }
 
     internal void Approve()
     {
@@ -40,5 +48,13 @@ public sealed class Section
         if (Status != SectionStatus.Rejected)
             throw new DomainInvariantViolationException($"Section {Id} must be Rejected to be revised (was {Status}).");
         Status = SectionStatus.Pending;
+    }
+
+    internal void SetContent(string content)
+    {
+        if (Status != SectionStatus.Pending)
+            throw new DomainInvariantViolationException($"Cannot set content for section {Id} because it is not in the Pending state.");
+
+        Content = content;
     }
 }
