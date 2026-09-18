@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using ClientReportPortal.Domain.Common;
 
-namespace ClientReportPortal.Domain.ReportPackages.Events
-{
-    internal class ReportPublished
-    {
-    }
-}
+namespace ClientReportPortal.Domain.ReportPackages.Events;
+public sealed record ReportPublished(
+    Guid ReportPackageId,
+    DateTime OccurredOnUtc) :
+    IDomainEvent;

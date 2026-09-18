@@ -1,4 +1,5 @@
 ﻿using ClientReportPortal.Domain.Common;
+using ClientReportPortal.Domain.ReportPackages.Events;
 
 namespace ClientReportPortal.Domain.ReportPackages;
 
@@ -46,6 +47,8 @@ public sealed class ReportPackage : AggregateRoot
 
         // Update the section status to Approved
         section.Approve();
+
+        Raise(new SectionApproved(Id, section.Id, section.Type, DateTime.UtcNow));
     }
 
     public void RejectSection(Guid sectionId)
@@ -83,6 +86,7 @@ public sealed class ReportPackage : AggregateRoot
         if (Status != ReportPackageStatus.Compiling)
             throw new DomainInvariantViolationException($"Cannot mark package {Id} as compiled because it is not in the Compiling state.");
         Status = ReportPackageStatus.Compiled;
+        Raise(new ReportCompiled(Id, DateTime.UtcNow));
     }
 
     public void MarkCompileFailed()
@@ -104,6 +108,7 @@ public sealed class ReportPackage : AggregateRoot
         if (Status != ReportPackageStatus.Compiled)
             throw new DomainInvariantViolationException($"Cannot publish package {Id} because it is not in the Compiled state.");
         Status = ReportPackageStatus.Published;
+        Raise(new ReportPublished(Id, DateTime.UtcNow));
     }
 
     public void SetSectionContent(Guid sectionId, string content)
