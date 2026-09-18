@@ -5,6 +5,7 @@
         Draft,
         Compiling,
         Compiled,
+        CompileFailed,
         Published,
     }
 }

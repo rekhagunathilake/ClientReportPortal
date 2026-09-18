@@ -1,10 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using ClientReportPortal.Domain.Common;
 
-namespace ClientReportPortal.Domain.ReportPackages.Events
-{
-    internal class SectionApproved
-    {
-    }
-}
+namespace ClientReportPortal.Domain.ReportPackages.Events;
+
+public sealed record SectionApproved(
+    Guid ReportPackageId,
+    Guid SectionId,
+    SectionType SectionType,
+    DateTime OccurredOnUtc) :
+    IDomainEvent;

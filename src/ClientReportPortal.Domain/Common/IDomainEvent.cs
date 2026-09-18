@@ -1,3 +1,6 @@
 ﻿namespace ClientReportPortal.Domain.Common;
 
-public interface IDomainEvent { }
+public interface IDomainEvent
+{
+    DateTime OccurredOnUtc { get; }
+}

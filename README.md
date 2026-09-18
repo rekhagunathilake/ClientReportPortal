@@ -41,6 +41,55 @@ flowchart LR
     AppHost -.orchestrates.-> DB
 ```
 
+## Report lifecycle
+
+`ReportPackage` and its `Section`s are modeled as an explicit state machine,
+with a deliberate split between transitions a human triggers and the one pair
+the compile saga is allowed to call.
+
+### ReportPackage
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft : Create() (Analyst)
+
+    Draft --> Compiling : StartCompilation() (Analyst)
+    Compiling --> Compiled : MarkCompiled() (Saga)
+    Compiling --> CompileFailed : MarkCompileFailed() (Saga)
+    CompileFailed --> Draft : RetryCompilation() (Analyst)
+    Compiled --> Published : Publish() (Analyst/Admin)
+    Published --> [*]
+```
+
+### Section
+```mermaid
+stateDiagram-v2
+    [*] --> Pending : seeded at Create()
+
+    Pending --> InReview : SubmitSectionForReview() (Analyst)
+    InReview --> Approved : ApproveSection() (Reviewer)
+    InReview --> Rejected : RejectSection() (Reviewer)
+    Rejected --> Pending : ReviseSection() (Analyst)
+```
+
+### Who triggers what
+
+| Transition    |	Method  |	Trigger |
+|---|---|---|
+|   → Draft |	Create()    |	Analyst — "New Report"
+|   Draft → Compiling   |	StartCompilation()  |	Analyst — clicks Compile
+|   Compiling → Compiled |	MarkCompiled()  |	Saga (MassTransit) — all steps succeeded
+|   Compiling → CompileFailed   |	MarkCompileFailed() |	Saga (MassTransit) — a step failed
+|   CompileFailed → Draft   |	RetryCompilation()  |	Analyst — decides to retry
+|   Compiled → Published    |	Publish()   |	Analyst/Admin — clicks Publish
+|   Pending → InReview |	SubmitSectionForReview()    |	Analyst
+|   InReview → Approved |	ApproveSection()    |	Reviewer
+|   InReview → Rejected |	RejectSection() |	Reviewer
+|   Rejected → Pending |	ReviseSection() |	Analyst
+
+The saga only ever calls two methods on the aggregate — MarkCompiled() and MarkCompileFailed(). Every other transition originates from a human action
+in the UI; Domain never sees the saga's internal steps (fetch data, render sections, assemble the PDF), only the outcome.
+
 ## Project structure
 src/
   ClientReportPortal.AppHost/          Aspire orchestration
