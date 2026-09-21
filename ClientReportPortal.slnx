@@ -16,6 +16,7 @@
     <Project Path="src/ClientReportPortal.Web/ClientReportPortal.Web/ClientReportPortal.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/ClientReportPortal.Application.Tests/ClientReportPortal.Application.Tests.csproj" Id="f4cf06ee-e1ad-47e7-a22f-b01c76e5e3da" />
     <Project Path="tests/ClientReportPortal.Domain.Tests/ClientReportPortal.Domain.Tests.csproj" />
   </Folder>
 </Solution>
