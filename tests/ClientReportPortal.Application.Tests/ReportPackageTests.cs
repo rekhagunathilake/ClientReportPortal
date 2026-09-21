@@ -44,4 +44,30 @@ public class ReportPackageTests
         await Assert.ThrowsAsync<NotFoundException>(() =>
             handler.Handle(new SubmitSectionForReviewCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None));
     }
+    // Approve section 
+
+    [Fact]
+    public async Task ApproveSection_MovesSectionToApproved()
+    {
+        var repository = new FakeReportPackageRepository();
+        var package = ReportPackage.Create("Acme Wealth", "2026-Q3");
+        var section = package.Sections.First(s => s.Type == SectionType.Performance);
+        package.SubmitSectionForReview(section.Id);
+        repository.Seed(package);
+
+        var handler = new ApproveSectionHandler(repository);
+        await handler.Handle(new ApproveSectionCommand(package.Id, section.Id), CancellationToken.None);
+
+        repository.Saved!.Sections.Single(s => s.Id == section.Id).Status.Should().Be(SectionStatus.Approved);
+    }
+
+    [Fact]
+    public async Task ApproveSection_ThrowsNotFoundWhenPackageDoesNotExist()
+    {
+        var repository = new FakeReportPackageRepository();
+        var handler = new ApproveSectionHandler(repository);
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            handler.Handle(new ApproveSectionCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None));
+    }
 }
