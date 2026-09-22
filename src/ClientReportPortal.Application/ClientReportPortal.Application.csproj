@@ -1,11 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="MassTransit" Version="8.5.10" />
     <PackageReference Include="MediatR" Version="12.5.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ClientReportPortal.Domain\ClientReportPortal.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Compilation\Events\" />
   </ItemGroup>
 
   <PropertyGroup>

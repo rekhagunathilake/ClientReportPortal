@@ -3,6 +3,7 @@ using ClientReportPortal.Domain.ReportPackages;
 using FluentAssertions;
 
 namespace ClientReportPortal.Application.Tests;
+
 public class ReportPackageTests
 {
     [Fact]
@@ -151,5 +152,99 @@ public class ReportPackageTests
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             handler.Handle(new SetSectionContentCommand(Guid.NewGuid(), Guid.NewGuid(), "content"), CancellationToken.None));
+    }
+
+    // Start compilation
+
+    [Fact]
+    public async Task StartCompilation_MovesPackageToCompiling()
+    {
+        var repository = new FakeReportPackageRepository();
+        var package = ReportPackage.Create("Acme Wealth", "2026-Q3");
+        foreach (var section in package.Sections)
+        {
+            package.SubmitSectionForReview(section.Id);
+            package.ApproveSection(section.Id);
+        }
+        repository.Seed(package);
+
+        var handler = new StartCompilationHandler(repository);
+        await handler.Handle(new StartCompilationCommand(package.Id), CancellationToken.None);
+
+        repository.Saved!.Status.Should().Be(ReportPackageStatus.Compiling);
+    }
+
+    [Fact]
+    public async Task StartCompilation_ThrowsNotFoundWhenPackageDoesNotExist()
+    {
+        var repository = new FakeReportPackageRepository();
+        var handler = new StartCompilationHandler(repository);
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            handler.Handle(new StartCompilationCommand(Guid.NewGuid()), CancellationToken.None));
+    }
+
+    // Retry compilation
+
+    [Fact]
+    public async Task RetryCompilation_MovesPackageBackToDraft()
+    {
+        var repository = new FakeReportPackageRepository();
+        var package = ReportPackage.Create("Acme Wealth", "2026-Q3");
+        foreach (var section in package.Sections)
+        {
+            package.SubmitSectionForReview(section.Id);
+            package.ApproveSection(section.Id);
+        }
+        package.StartCompilation();
+        package.MarkCompileFailed();
+        repository.Seed(package);
+
+        var handler = new RetryCompilationHandler(repository);
+        await handler.Handle(new RetryCompilationCommand(package.Id), CancellationToken.None);
+
+        repository.Saved!.Status.Should().Be(ReportPackageStatus.Draft);
+    }
+
+    [Fact]
+    public async Task RetryCompilation_ThrowsNotFoundWhenPackageDoesNotExist()
+    {
+        var repository = new FakeReportPackageRepository();
+        var handler = new RetryCompilationHandler(repository);
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            handler.Handle(new RetryCompilationCommand(Guid.NewGuid()), CancellationToken.None));
+    }
+
+    // Publish package
+
+    [Fact]
+    public async Task Publish_MovesPackageToPublished()
+    {
+        var repository = new FakeReportPackageRepository();
+        var package = ReportPackage.Create("Acme Wealth", "2026-Q3");
+        foreach (var section in package.Sections)
+        {
+            package.SubmitSectionForReview(section.Id);
+            package.ApproveSection(section.Id);
+        }
+        package.StartCompilation();
+        package.MarkCompiled();
+        repository.Seed(package);
+
+        var handler = new PublishHandler(repository);
+        await handler.Handle(new PublishCommand(package.Id), CancellationToken.None);
+
+        repository.Saved!.Status.Should().Be(ReportPackageStatus.Published);
+    }
+
+    [Fact]
+    public async Task Publish_ThrowsNotFoundWhenPackageDoesNotExist()
+    {
+        var repository = new FakeReportPackageRepository();
+        var handler = new PublishHandler(repository);
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            handler.Handle(new PublishCommand(Guid.NewGuid()), CancellationToken.None));
     }
 }
