@@ -9,10 +9,6 @@
     <ProjectReference Include="..\ClientReportPortal.Domain\ClientReportPortal.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Compilation\Events\" />
-  </ItemGroup>
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
