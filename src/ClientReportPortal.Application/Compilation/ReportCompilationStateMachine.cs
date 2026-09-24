@@ -1,4 +1,6 @@
-﻿using MassTransit;
+﻿using ClientReportPortal.Application.Compilation.Events;
+using ClientReportPortal.Application.ReportPackages;
+using MassTransit;
 
 namespace ClientReportPortal.Application.Compilation;
 
@@ -12,11 +14,15 @@ public sealed class ReportCompilationStateMachine : MassTransitStateMachine<Repo
     public Event<SectionsRendered> SectionsRendered { get; private set; } = default!;
     public State AssemblingPdf { get; private set; } = default!;
     public Event<PdfAssembled> PdfAssembled { get; private set; } = default!;
+    public State StoringPdf { get; private set; } = default!;
+    public Event<PdfStored> PdfStored { get; private set; } = default!;
 
     public ReportCompilationStateMachine(
         IPerformanceDataProvider performanceDataProvider, 
         ISectionRenderer sectionRenderer, 
-        IReportPdfAssembler reportPdfAssembler)
+        IReportPdfAssembler reportPdfAssembler,
+        IReportPackageStorage reportPackageStorage,
+        IReportPackageRepository reportPackageRepository)
     {
         InstanceState(x => x.CurrentState);
 
@@ -24,6 +30,7 @@ public sealed class ReportCompilationStateMachine : MassTransitStateMachine<Repo
         Event(() => PerformanceDataFetched, x => x.CorrelateById(m => m.Message.ReportPackageId));
         Event(() => SectionsRendered, x => x.CorrelateById(m => m.Message.ReportPackageId));
         Event(() => PdfAssembled, x => x.CorrelateById(m => m.Message.ReportPackageId));
+        Event(() => PdfStored, x => x.CorrelateById(m => m.Message.ReportPackageId));
 
         Initially(
             When(CompilationRequested)
@@ -54,6 +61,29 @@ public sealed class ReportCompilationStateMachine : MassTransitStateMachine<Repo
                     await context.Publish(new PdfAssembled(context.Saga.ReportPackageId));
                 })
                 .TransitionTo(AssemblingPdf)
+        );
+
+        During(AssemblingPdf,
+            When(PdfAssembled)
+                .ThenAsync(async context =>
+                {
+                    await reportPackageStorage.StoreAsync(context.Saga.ReportPackageId, context.CancellationToken);
+                    await context.Publish(new PdfStored(context.Saga.ReportPackageId));
+                })
+                .TransitionTo(StoringPdf)
+        );
+
+        During(StoringPdf,
+            When(PdfStored)
+                .ThenAsync(async context =>
+                {
+                    var package = await reportPackageRepository.GetAsync(context.Saga.ReportPackageId, context.CancellationToken)
+                                  ?? throw new NotFoundException($"Report package {context.Saga.ReportPackageId} not found.");
+
+                    package.MarkCompiled();
+                    await reportPackageRepository.SaveAsync(package, context.CancellationToken);
+                })
+                .TransitionTo(Final)
         );
     }
 }
