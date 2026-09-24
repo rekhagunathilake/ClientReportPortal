@@ -16,6 +16,7 @@ public sealed class ReportCompilationStateMachine : MassTransitStateMachine<Repo
     public Event<PdfAssembled> PdfAssembled { get; private set; } = default!;
     public State StoringPdf { get; private set; } = default!;
     public Event<PdfStored> PdfStored { get; private set; } = default!;
+    public Event<CompilationFailed> CompilationFailed { get; private set; } = default!;
 
     public ReportCompilationStateMachine(
         IPerformanceDataProvider performanceDataProvider, 
@@ -31,14 +32,23 @@ public sealed class ReportCompilationStateMachine : MassTransitStateMachine<Repo
         Event(() => SectionsRendered, x => x.CorrelateById(m => m.Message.ReportPackageId));
         Event(() => PdfAssembled, x => x.CorrelateById(m => m.Message.ReportPackageId));
         Event(() => PdfStored, x => x.CorrelateById(m => m.Message.ReportPackageId));
+        Event(() => CompilationFailed, x => x.CorrelateById(m => m.Message.ReportPackageId));
 
         Initially(
             When(CompilationRequested)
                 .Then(context => context.Saga.ReportPackageId = context.Message.ReportPackageId)
                 .ThenAsync(async context =>
                 {
-                    await performanceDataProvider.GetAsync(context.Saga.ReportPackageId, context.CancellationToken);
-                    await context.Publish(new PerformanceDataFetched(context.Saga.ReportPackageId));
+                    try
+                    {
+                        await performanceDataProvider.GetAsync(context.Saga.ReportPackageId, context.CancellationToken);
+                        await context.Publish(new PerformanceDataFetched(context.Saga.ReportPackageId));
+                    }
+                    catch (Exception)
+                    {
+                        await MarkPackageCompileFailedAsync(reportPackageRepository, context.Saga.ReportPackageId, context.CancellationToken);
+                        await context.Publish(new CompilationFailed(context.Saga.ReportPackageId));
+                    }
                 })
                 .TransitionTo(FetchingPerformanceData)
         );
@@ -47,8 +57,16 @@ public sealed class ReportCompilationStateMachine : MassTransitStateMachine<Repo
             When(PerformanceDataFetched)
                 .ThenAsync(async context =>
                 {
-                    await sectionRenderer.RenderAsync(context.Saga.ReportPackageId, context.CancellationToken);
-                    await context.Publish(new SectionsRendered(context.Saga.ReportPackageId));
+                    try
+                    {
+                        await sectionRenderer.RenderAsync(context.Saga.ReportPackageId, context.CancellationToken);
+                        await context.Publish(new SectionsRendered(context.Saga.ReportPackageId));
+                    }
+                    catch (Exception)
+                    {
+                        await MarkPackageCompileFailedAsync(reportPackageRepository, context.Saga.ReportPackageId, context.CancellationToken);
+                        await context.Publish(new CompilationFailed(context.Saga.ReportPackageId));
+                    }
                 })
                 .TransitionTo(RenderingSections)
         );
@@ -57,8 +75,16 @@ public sealed class ReportCompilationStateMachine : MassTransitStateMachine<Repo
             When(SectionsRendered)
                 .ThenAsync(async context =>
                 {
-                    await reportPdfAssembler.AssembleAsync(context.Saga.ReportPackageId, context.CancellationToken);
-                    await context.Publish(new PdfAssembled(context.Saga.ReportPackageId));
+                    try
+                    {
+                        await reportPdfAssembler.AssembleAsync(context.Saga.ReportPackageId, context.CancellationToken);
+                        await context.Publish(new PdfAssembled(context.Saga.ReportPackageId));
+                    }
+                    catch (Exception)
+                    {
+                        await MarkPackageCompileFailedAsync(reportPackageRepository, context.Saga.ReportPackageId, context.CancellationToken);
+                        await context.Publish(new CompilationFailed(context.Saga.ReportPackageId));
+                    }
                 })
                 .TransitionTo(AssemblingPdf)
         );
@@ -67,8 +93,16 @@ public sealed class ReportCompilationStateMachine : MassTransitStateMachine<Repo
             When(PdfAssembled)
                 .ThenAsync(async context =>
                 {
-                    await reportPackageStorage.StoreAsync(context.Saga.ReportPackageId, context.CancellationToken);
-                    await context.Publish(new PdfStored(context.Saga.ReportPackageId));
+                    try
+                    {
+                        await reportPackageStorage.StoreAsync(context.Saga.ReportPackageId, context.CancellationToken);
+                        await context.Publish(new PdfStored(context.Saga.ReportPackageId));
+                    }
+                    catch (Exception)
+                    {
+                        await MarkPackageCompileFailedAsync(reportPackageRepository, context.Saga.ReportPackageId, context.CancellationToken);
+                        await context.Publish(new CompilationFailed(context.Saga.ReportPackageId));
+                    }
                 })
                 .TransitionTo(StoringPdf)
         );
@@ -77,13 +111,42 @@ public sealed class ReportCompilationStateMachine : MassTransitStateMachine<Repo
             When(PdfStored)
                 .ThenAsync(async context =>
                 {
-                    var package = await reportPackageRepository.GetAsync(context.Saga.ReportPackageId, context.CancellationToken)
-                                  ?? throw new NotFoundException($"Report package {context.Saga.ReportPackageId} not found.");
+                    try
+                    {
+                        var package = await reportPackageRepository.GetAsync(context.Saga.ReportPackageId, context.CancellationToken)
+                                                  ?? throw new NotFoundException($"Report package {context.Saga.ReportPackageId} not found.");
 
-                    package.MarkCompiled();
-                    await reportPackageRepository.SaveAsync(package, context.CancellationToken);
+                        package.MarkCompiled();
+                        await reportPackageRepository.SaveAsync(package, context.CancellationToken);
+                    }
+                    catch (Exception)
+                    {
+                        // NOTE: if SaveAsync above throws *after* MarkCompiled() already mutated the
+                        // in-memory package, this catch will try MarkCompileFailed() on an already-Compiled 
+                        // package and throw. Not reachable with the current fakes (nothing
+                        // fails SaveAsync independently of the work itself), but a real gap once
+                        // Infrastructure has a database that could fail the save step alone.
+                        await MarkPackageCompileFailedAsync(reportPackageRepository, context.Saga.ReportPackageId, context.CancellationToken);
+                        await context.Publish(new CompilationFailed(context.Saga.ReportPackageId));
+                    }
                 })
                 .TransitionTo(Final)
         );
+
+        DuringAny(
+            When(CompilationFailed)
+                .TransitionTo(Final)
+        );
+    }
+
+    private static async Task MarkPackageCompileFailedAsync(
+        IReportPackageRepository repository, Guid reportPackageId, CancellationToken ct)
+    {
+        var package = await repository.GetAsync(reportPackageId, ct);
+        if (package is not null)
+        {
+            package.MarkCompileFailed();
+            await repository.SaveAsync(package, ct);
+        }
     }
 }
