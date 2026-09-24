@@ -19,6 +19,7 @@ public class ReportCompilationStateMachineTests
             })
             .AddSingleton<IPerformanceDataProvider, FakePerformanceDataProvider>()
             .AddSingleton<ISectionRenderer, FakeSectionRenderer>()
+            .AddSingleton<IReportPdfAssembler, FakeReportPdfAssembler>()
             .BuildServiceProvider(true);
 
         var harness = provider.GetRequiredService<ITestHarness>();
@@ -49,6 +50,7 @@ public class ReportCompilationStateMachineTests
             })
             .AddSingleton<IPerformanceDataProvider, FakePerformanceDataProvider>()
             .AddSingleton<ISectionRenderer, FakeSectionRenderer>()
+            .AddSingleton<IReportPdfAssembler, FakeReportPdfAssembler>()
             .BuildServiceProvider(true);
 
         var harness = provider.GetRequiredService<ITestHarness>();
@@ -60,10 +62,40 @@ public class ReportCompilationStateMachineTests
             await harness.Bus.Publish(new CompilationRequested(reportPackageId));
 
             (await harness.Published.Any<SectionsRendered>()).Should().BeTrue();
+        }
+        finally
+        {
+            await harness.Stop();
+        }
+    }
+
+    [Fact]
+    public async Task SectionsRendered_TransitionsSagaToAssemblingPdf()
+    {
+        await using var provider = new ServiceCollection()
+            .AddMassTransitTestHarness(cfg =>
+            {
+                cfg.AddSagaStateMachine<ReportCompilationStateMachine, ReportCompilationState>()
+                    .InMemoryRepository();
+            })
+            .AddSingleton<IPerformanceDataProvider, FakePerformanceDataProvider>()
+            .AddSingleton<ISectionRenderer, FakeSectionRenderer>()
+            .AddSingleton<IReportPdfAssembler, FakeReportPdfAssembler>()
+            .BuildServiceProvider(true);
+
+        var harness = provider.GetRequiredService<ITestHarness>();
+        await harness.Start();
+
+        try
+        {
+            var reportPackageId = Guid.NewGuid();
+            await harness.Bus.Publish(new CompilationRequested(reportPackageId));
+
+            (await harness.Published.Any<PdfAssembled>()).Should().BeTrue();
 
             var sagaHarness = harness.GetSagaStateMachineHarness<ReportCompilationStateMachine, ReportCompilationState>();
             var instanceId = sagaHarness.Created.ContainsInState(
-                reportPackageId, sagaHarness.StateMachine, sagaHarness.StateMachine.RenderingSections);
+                reportPackageId, sagaHarness.StateMachine, sagaHarness.StateMachine.AssemblingPdf);
 
             instanceId.Should().NotBeNull();
         }
