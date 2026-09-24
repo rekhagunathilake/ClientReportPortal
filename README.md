@@ -1,5 +1,7 @@
 # Client Report Portal
 
+[![CI](https://github.com/rekhagunathilake/ClientReportPortal/actions/workflows/ci.yml/badge.svg)](https://github.com/rekhagunathilake/ClientReportPortal/actions/workflows/ci.yml)
+
 An internal tool a client-service team at an asset manager would use to assemble, review, and publish each client's quarterly report — commentary, performance, and holdings — with AI-assisted drafting and full observability across the stack.
 
 Built as a hands-on exercise across a deliberate set of modern .NET patterns; each one is a real requirement of the app, not a demo bolted on for its own sake. See [`docs/decisions/`](docs/decisions/) for the reasoning behind each decision.
