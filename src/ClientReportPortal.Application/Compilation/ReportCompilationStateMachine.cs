@@ -10,14 +10,20 @@ public sealed class ReportCompilationStateMachine : MassTransitStateMachine<Repo
     public Event<PerformanceDataFetched> PerformanceDataFetched { get; private set; } = default!;
     public State RenderingSections { get; private set; } = default!;
     public Event<SectionsRendered> SectionsRendered { get; private set; } = default!;
+    public State AssemblingPdf { get; private set; } = default!;
+    public Event<PdfAssembled> PdfAssembled { get; private set; } = default!;
 
-    public ReportCompilationStateMachine(IPerformanceDataProvider performanceDataProvider, ISectionRenderer sectionRenderer)
+    public ReportCompilationStateMachine(
+        IPerformanceDataProvider performanceDataProvider, 
+        ISectionRenderer sectionRenderer, 
+        IReportPdfAssembler reportPdfAssembler)
     {
         InstanceState(x => x.CurrentState);
 
         Event(() => CompilationRequested, x => x.CorrelateById(m => m.Message.ReportPackageId));
         Event(() => PerformanceDataFetched, x => x.CorrelateById(m => m.Message.ReportPackageId));
         Event(() => SectionsRendered, x => x.CorrelateById(m => m.Message.ReportPackageId));
+        Event(() => PdfAssembled, x => x.CorrelateById(m => m.Message.ReportPackageId));
 
         Initially(
             When(CompilationRequested)
@@ -38,6 +44,16 @@ public sealed class ReportCompilationStateMachine : MassTransitStateMachine<Repo
                     await context.Publish(new SectionsRendered(context.Saga.ReportPackageId));
                 })
                 .TransitionTo(RenderingSections)
+        );
+
+        During(RenderingSections,
+            When(SectionsRendered)
+                .ThenAsync(async context =>
+                {
+                    await reportPdfAssembler.AssembleAsync(context.Saga.ReportPackageId, context.CancellationToken);
+                    await context.Publish(new PdfAssembled(context.Saga.ReportPackageId));
+                })
+                .TransitionTo(AssemblingPdf)
         );
     }
 }
